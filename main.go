@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"sync"
 	"net"
 	"strings"
@@ -292,7 +293,11 @@ func main() {
 	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {shorten(w, r, db, limiter)})
 	http.HandleFunc("/clicks", func(w http.ResponseWriter, r *http.Request) {CheckClicks(w, r, db, limiter)})
 
-	err = http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	err = http.ListenAndServe(":" + port, nil)
 	if err != nil {
 		panic(err)
 	}
