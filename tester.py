@@ -2,6 +2,7 @@ import time
 import requests
 
 url = "http://localhost:8080"
+url = "https://url-shortener-h6yx.onrender.com/"
 # payload={"url": "https://www.youtube.com", "code": "a"}
 
 # response = requests.post(f"{url}/shorten", json=payload)
@@ -29,14 +30,15 @@ url = "http://localhost:8080"
 # response = requests.post(f"{url}/clicks", json=payload)
 
 payload = {"url":"https://www.google.co.in"}
+payload = {"url":"https://www.youtube.com"}
 
-for i in range(25):
+for i in range(5):
 	response = requests.post(f"{url}/shorten", json=payload)
-	print(response.status_code, response.text)
+	print("SHORTEN", response.status_code, response.text)
 	# response = requests.get(f"{url}/a")
 	# response = requests.get(f"{url}/abc")
-	response = requests.get(f"{url}/ajd")
-	print(response.status_code, response.text)
+	# response = requests.get(f"{url}/bNQadu")
+	# print("AJD", response.status_code, response.text)
 	response = requests.post(f"{url}/shorten", json=payload)
 	# time.sleep(1)
-	print(response.status_code, response.text)
+	print("SHORTEN", response.status_code, response.text)

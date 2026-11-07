@@ -42,8 +42,15 @@ func read(db *sql.DB, code string) (string, error) {
 	return url, err
 }
 
-func write(db *sql.DB, code string, url string) error {
-	_, err := db.Exec("INSERT INTO codes (code, url) VALUES (?, ?)", code, url)
+func readExpiry(db *sql.DB, code string) (int, error) {
+	var expiry string
+	err := db.QueryRow("SELECT expiry FROM codes WHERE code = ?", code).Scan(&expiry)
+	expiryInt, err := strconv.Atoi(expiry)
+	return expiryInt, err
+}
+
+func write(db *sql.DB, code string, url string, expiry int64) error {
+	_, err := db.Exec("INSERT INTO codes (code, url, expiry) VALUES (?, ?, ?)", code, url, expiry)
 	return err
 }
 
@@ -133,7 +140,7 @@ func shorten(w http.ResponseWriter, r *http.Request, db *sql.DB, limiter *RateLi
 			_, exists = read(db, code)
 		}
 	
-		err = write(db, code, req.URL)
+		err = write(db, code, req.URL, time.Now().Add(time.Minute).Unix())
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
@@ -146,7 +153,7 @@ func shorten(w http.ResponseWriter, r *http.Request, db *sql.DB, limiter *RateLi
 			http.Error(w, "code already exists", http.StatusBadRequest)
 			return
 		} else {
-			err = write(db, req.CustomCode, req.URL)
+			err = write(db, req.CustomCode, req.URL, time.Now().Add(time.Minute).Unix())
 			if err != nil {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
@@ -189,10 +196,25 @@ func def(w http.ResponseWriter, r *http.Request, db *sql.DB, limiter *RateLimite
 
 	limiter.mu.Unlock()
 
+
+
 	
 	val2, exists2 := read(db, r.URL.Path[1:])
 	if exists2 == nil {
-		err := IncClicks(db, r.URL.Path[1:])
+		
+
+		expiry, err := readExpiry(db, r.URL.Path[1:])
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if time.Now().Unix() > int64(expiry) {
+			http.Error(w, "resource expired", http.StatusGone)
+			return
+		}
+
+
+		err = IncClicks(db, r.URL.Path[1:])
 		if err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			fmt.Println(err)
@@ -263,7 +285,7 @@ func CheckClicks(w http.ResponseWriter, r *http.Request, db *sql.DB, limiter *Ra
 }
 
 func initDB(db *sql.DB) {
-	query := "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, url TEXT NOT NULL, clicks INTEGER DEFAULT 0)"
+	query := "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, url TEXT NOT NULL, clicks INTEGER DEFAULT 0, expiry INTEGER)"
 	_, err := db.Exec(query)
 	if err != nil {
 		panic(err)
@@ -283,7 +305,7 @@ func main() {
 	
 	defer db.Close()
 
-	// _, err = db.Exec("DROP TABLE codes")
+	_, err = db.Exec("DROP TABLE codes")
 
 	initDB(db)
 
